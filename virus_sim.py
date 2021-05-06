@@ -17,7 +17,7 @@ def distance(x1, x2, y1, y2):
 
 
 class Person:
-    def __init__(self, x, y, v, phi, om, sick):
+    def __init__(self, x, y, v, phi, om, sick, tp_spot, tp_radius):
         self.x = x
         self.y = y
         self.vel = v
@@ -29,21 +29,16 @@ class Person:
         self.tp_chance = 0.01
         self.tp_cooldown = 15
         self.tp_time = 0
-        self.tp_spot = [200, 200]
+        self.tp_back_cooldown = 15
+        self.tp_spot = tp_spot
+        self.tp_radius = tp_radius
+        self.tpd = False
+        self.last_pos = [self.x, self.y]
         self.death_risk = 0.001
 
     def update(self, area):
         if self.state != 3:
-            r = rnd.random()
-            # Individerna tillåts teleportera
-            if r < self.tp_chance and self.tp_time >= self.tp_cooldown:
-                tp_x = rnd.randint(100) + self.tp_spot[0]
-                tp_y = rnd.randint(100) + self.tp_spot[1]
-                self.x = tp_x
-                self.y = tp_y
-                self.tp_time = 0
-            else:
-                self.tp_time += 1
+            self.teleport()
 
             #Stega framåt
             self.x += self.vel * np.cos(self.angle)
@@ -78,6 +73,32 @@ class Person:
                 return 1
         return 0
 
+    def teleport(self):
+        if not self.tpd:
+            R = rnd.random()
+            # Individerna tillåts teleportera
+            if R < self.tp_chance and self.tp_time >= self.tp_cooldown:
+                self.last_pos = [self.x, self.y]
+                r = rnd.rand()*self.tp_radius
+                theta = rnd.random()*2*np.pi
+                tp_x = self.tp_spot[0] + r * np.cos(theta)
+                tp_y = self.tp_spot[1] + r * np.sin(theta)
+                self.x = tp_x
+                self.y = tp_y
+                self.tp_time = 0
+                self.tpd = True
+            else:
+                self.tp_time += 1
+        else:
+            if self.tp_time >= self.tp_back_cooldown:
+                self.x = self.last_pos[0]
+                self.y = self.last_pos[1]
+                self.tpd = False
+                self.tp_time = 0
+            else:
+                self.tp_time += 1
+
+
     def draw(self, area):
         #Ritar cirklar i olika färger beroende på tillstånd
         if self.state == 1:
@@ -106,7 +127,7 @@ class Population:
             self.add_person(rnd.randint(0, self.area.width), rnd.randint(0, self.area.height), 1)
 
     def add_person(self, x, y, sick):
-        self.population_list.append(Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick))
+        self.population_list.append(Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, self.area.tp_spot, self.area.tp_radius))
         self.size += 1
         if sick:
             self.sicks += 1
@@ -116,14 +137,17 @@ class Population:
 
 
 class Area:
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, tp_spot, tp_radius):
         self.x = x
         self.y = y
         self.width = w
         self.height = h
+        self.tp_spot = tp_spot
+        self.tp_radius = tp_radius
 
     def draw(self):
         pygame.draw.rect(screen, (0, 0, 0), (self.x, self.y, self.width, self.height), 2)
+        pygame.draw.circle(screen, (255,100,100), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
 
 
 #Klass som
@@ -167,8 +191,8 @@ class Manager:
 
 
 def main():
-    area = Area(100, 100, 600, 400)
-    population = Population(50, area)
+    area = Area(100, 100, 600, 400, [200,200], 50)
+    population = Population(1, area)
     manager = Manager(population)
 
     #Huvudloop där allt uppdateras
