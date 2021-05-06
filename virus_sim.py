@@ -37,8 +37,10 @@ class Person:
             r = rnd.random()
             # Individerna tillåts teleportera
             if r < self.tp_chance and self.tp_time >= self.tp_cooldown:
-                self.x = self.tp_spot[0]
-                self.y = self.tp_spot[1]
+                tp_x = rnd.randint(100) + self.tp_spot[0]
+                tp_y = rnd.randint(100) + self.tp_spot[1]
+                self.x = tp_x
+                self.y = tp_y
                 self.tp_time = 0
             else:
                 self.tp_time += 1
