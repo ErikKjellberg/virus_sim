@@ -17,13 +17,13 @@ def distance(x1, x2, y1, y2):
 
 
 class Person:
-    def __init__(self, x, y, v, phi, om, sick, tp_spot, tp_radius):
+    def __init__(self, x, y, v, phi, om, state, tp_spot, tp_radius):
         self.x = x
         self.y = y
         self.vel = v
         self.angle = phi
         self.rot_vel = om
-        self.state = sick
+        self.state = state
         self.current_sick_time = 0
         self.sick_time = 300
         self.tp_chance = 0.01
@@ -76,7 +76,6 @@ class Person:
     def teleport(self):
         if not self.tpd:
             R = rnd.random()
-            # Individerna tillåts teleportera
             if R < self.tp_chance and self.tp_time >= self.tp_cooldown:
                 self.last_pos = [self.x, self.y]
                 r = rnd.rand()*self.tp_radius
@@ -99,24 +98,20 @@ class Person:
                 self.tp_time += 1
 
 
-    def draw(self, area):
+    def draw(self, area, colors):
         #Ritar cirklar i olika färger beroende på tillstånd
-        if self.state == 1:
-            pygame.draw.circle(screen, (255, 0, 0), (int(area.x + self.x), int(area.y + self.y)), 3)
-        elif self.state == 0:
-            pygame.draw.circle(screen, (0, 0, 0), (int(area.x + self.x), int(area.y + self.y)), 3)
-        elif self.state == 2:
-            pygame.draw.circle(screen, (0, 0, 255), (int(area.x + self.x), int(area.y + self.y)), 3)
-        elif self.state == 3:
-            pygame.draw.circle(screen, (100, 100, 100), (int(area.x + self.x), int(area.y + self.y)), 3)
+        pygame.draw.circle(screen, colors[self.state], (int(area.x + self.x), int(area.y + self.y)), 3)
 
 
 class Population:
     def __init__(self, n, area):
         self.size = 0
-        self.sicks = 0
-        self.recovered = 0
-        self.dead = 0
+        self.distribution = {}
+        self.distribution["Susceptible"] = 0
+        self.distribution["Infected"] = 0
+        self.distribution["Recovered"] = 0
+        self.distribution["Dead"] = 0
+        self.distribution["Vaccinated"] = 0
         self.population_list = []
         self.area = area
         self.vel = 2
@@ -130,7 +125,10 @@ class Population:
         self.population_list.append(Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, self.area.tp_spot, self.area.tp_radius))
         self.size += 1
         if sick:
-            self.sicks += 1
+            self.distribution["Infected"] += 1
+        else:
+            self.distribution["Susceptible"] += 1
+
 
     def size(self):
         return len(self.population_list)
@@ -150,23 +148,21 @@ class Area:
         pygame.draw.circle(screen, (255,100,100), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
 
 
-#Klass som
 class Manager:
     def __init__(self, population):
         self.population = population
         self.inf_prob = 0.01
         self.distance = 50
+        self.colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100)]
 
     def update(self, population):
         #Skriv ut text
         pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
-        sick_text = font1.render(("Infected: "+str(population.sicks)), True, (255,0,0))
-        recovered_text = font1.render(("Recovered: "+str(population.recovered)), True, (0,0,255))
-        dead_text = font1.render(("Dead: "+str(population.dead)), True, (100,100,100))
         screen.blit(pop_text, (0,0))
-        screen.blit(sick_text, (0,25))
-        screen.blit(recovered_text, (0,50))
-        screen.blit(dead_text, (0,75))
+        states = ["Susceptible", "Infected", "Recovered", "Dead"]
+        for i in range(len(states)):
+            text = font1.render((states[i]+": "+str(population.distribution[states[i]])), True, self.colors[i])
+            screen.blit(text, (0, 25*(i+1)))
 
         #Undersöker om smittspridning kan ske
         for person in population.population_list:
@@ -178,21 +174,22 @@ class Manager:
             #Kör update för varje person
             state = person.update(population.area)
             if state == 1:
-                population.sicks -= 1
-                population.recovered += 1
+                population.distribution["Infected"] -= 1
+                population.distribution["Recovered"] += 1
             elif state == -1:
-                population.sicks -= 1
-                population.dead += 1
-            person.draw(population.area)
+                population.distribution["Infected"] -= 1
+                population.distribution["Dead"] += 1
+            person.draw(population.area, self.colors)
 
     def infect(self, person):
-        self.population.sicks += 1
+        self.population.distribution["Susceptible"] -= 1
+        self.population.distribution["Infected"] += 1
         person.state = 1
 
 
 def main():
-    area = Area(100, 100, 600, 400, [200,200], 50)
-    population = Population(1, area)
+    area = Area(100, 150, 600, 400, [200,200], 50)
+    population = Population(50, area)
     manager = Manager(population)
 
     #Huvudloop där allt uppdateras
