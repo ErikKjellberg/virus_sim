@@ -10,6 +10,7 @@ clock = pygame.time.Clock()
 fps = 15
 
 font1 = pygame.font.SysFont("courier", 24)
+font2 = pygame.font.SysFont("Arial", 12, italic=True, bold=True)
 
 
 def distance(x1, x2, y1, y2):
@@ -142,10 +143,16 @@ class Area:
         self.height = h
         self.tp_spot = tp_spot
         self.tp_radius = tp_radius
+        self.market_text = font2.render("SUPERMARKET", True, (255,0,0))
 
     def draw(self):
+        pygame.draw.rect(screen, (240,240,230), (self.x, self.y, self.width, self.height))
         pygame.draw.rect(screen, (0, 0, 0), (self.x, self.y, self.width, self.height), 2)
-        pygame.draw.circle(screen, (255,100,100), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
+        pygame.draw.circle(screen, (255,200,200), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
+        pygame.draw.circle(screen, (255,0,0), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius, 1)
+
+        screen.blit(self.market_text, (self.x+self.tp_spot[0]-self.market_text.get_width()/2, self.y+self.tp_spot[1]-self.market_text.get_height()/2))
+
 
 
 class Manager:
@@ -155,14 +162,15 @@ class Manager:
         self.distance = 50
         self.colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100)]
 
-    def update(self, population):
+    def update(self, population, graphics):
         #Skriv ut text
-        pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
-        screen.blit(pop_text, (0,0))
-        states = ["Susceptible", "Infected", "Recovered", "Dead"]
-        for i in range(len(states)):
-            text = font1.render((states[i]+": "+str(population.distribution[states[i]])), True, self.colors[i])
-            screen.blit(text, (0, 25*(i+1)))
+        if graphics:
+            pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
+            screen.blit(pop_text, (0,0))
+            states = ["Susceptible", "Infected", "Recovered", "Dead"]
+            for i in range(len(states)):
+                text = font1.render((states[i]+": "+str(population.distribution[states[i]])), True, self.colors[i])
+                screen.blit(text, (0, 25*(i+1)))
 
         #Undersöker om smittspridning kan ske
         for person in population.population_list:
@@ -179,22 +187,46 @@ class Manager:
             elif state == -1:
                 population.distribution["Infected"] -= 1
                 population.distribution["Dead"] += 1
-            person.draw(population.area, self.colors)
+            if graphics:
+                person.draw(population.area, self.colors)
 
     def infect(self, person):
         self.population.distribution["Susceptible"] -= 1
         self.population.distribution["Infected"] += 1
         person.state = 1
 
+class Stats:
+    def __init__(self, pop):
+        self.population = pop
+        self.data = {}
+        for key in self.population.distribution.keys():
+            self.data[key] = []
+        self.done = False
+
+    def update(self):
+        for key in self.population.distribution.keys():
+            self.data[key].append(self.population.distribution[key])
+        if self.data["Infected"][-1] <= 0 and self.done == False:
+            self.done = True
+            for key in self.data.keys():
+                plt.plot(self.data[key])
+            plt.show()
+
+    def plot(self):
+        plt.plot(self.I)
+
 
 def main():
+    graphics = True
     area = Area(100, 150, 600, 400, [200,200], 50)
     population = Population(50, area)
     manager = Manager(population)
+    stats = Stats(population)
 
     #Huvudloop där allt uppdateras
     while True:
-        screen.fill((255, 255, 255))
+        if graphics:
+            screen.fill((255, 255, 255))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -206,10 +238,13 @@ def main():
                         population.add_person(x-area.x, y-area.y, False)
                     if event.button == 3:
                         population.add_person(x-area.x, y-area.y, True)
-        area.draw()
-        manager.update(population)
-        pygame.display.update()
-        clock.tick(fps)
+        if graphics:
+            area.draw()
+        manager.update(population, graphics)
+        stats.update()
+        if graphics:
+            pygame.display.update()
+            clock.tick(fps)
 
 
 main()
