@@ -35,6 +35,7 @@ class Person:
         self.tp_radius = tp_radius
         self.tpd = False
         self.last_pos = [self.x, self.y]
+        self.mat_pos = [0,0]
         self.death_risk = 0.001
 
     def update(self, area):
@@ -102,6 +103,50 @@ class Person:
     def draw(self, area, colors):
         #Ritar cirklar i olika färger beroende på tillstånd
         pygame.draw.circle(screen, colors[self.state], (int(area.x + self.x), int(area.y + self.y)), 3)
+
+class pop_matrix: #skapar matris för avståndsbedömning
+    def __init__(self, pop_size, area, safe_distance):
+        self.mat_pop = []
+        self.area = area
+        self.pop_size = pop_size
+        self.safe_distance = safe_distance
+        self.width = area[0]//safe_distance
+        self.height = area[1]//safe_distance
+        for i in range(self.width):
+            self.matpop.append([])
+            for j in range(self.height):
+                self.matpop[j].append([])
+
+    def add_pop(pop_list): #lägger in pop i matrisen
+        for person in pop_list:
+            person.mat_pos = [person.x//self.safe_distance, person.y//self.safe_distance]
+            self.mat_pop[person.matpos[0]][person.mat_pos[1]].append(person)
+
+    def add_person(person): #lägger till en person i matrisen
+        person.mat_pos = [person.x//self.safe_distance, person.y//self.safe_distance]
+        self.mat_pop[person.mat_pos[0]][person.mat_pos[1]].append(person)
+
+    def update_person(person): #uppdaterar personens matrix pos efter att positionen har ändrats
+        self.mat_pop[person.mat_pos[0]][person.mat_pos[1]].remove(person)
+        pop_matrix.add_person(person)
+
+    def check_distance(pop): #returnernar ett set med par med folk som är för nära varandra
+        too_close = set()
+        for person in pop:
+            matrix_pos = person.matrix_pos
+            for i in range(matrix_pos[0] - 1, matrix_pos[0] + 2):
+                for j in range(matrix_pos[1] - 1, matrix_pos[1] + 2):
+                    if len(mat_pop[i][j]) != 0:
+                        for person_2 in mat_pop[i][j]:
+                            if distance(person.x, person_2.x, person.y, person_2.y) < self.safe_distance:
+                                too_close.add([person, person_2])
+        return too_close
+
+
+
+
+
+
 
 
 class Population:
