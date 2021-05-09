@@ -247,12 +247,13 @@ class Stats:
 
 def main():
     n = int(input("Population size: "))
+    infected = float(input("Part of population infected in the beginning (for example 0.01): "))
     inf_prob = float(input("Infection probability (every frame, 0.01 is pretty lagom): "))
     death_risk = float(input("Death probability (every frame, 0.00005 is pretty lagom): "))
     std_distance = 350
     std_velocity = 14
     area = Area(100, 150, 600, 400, [200,200], 50, n)
-    population = Population(n, area, std_distance, std_velocity, 0.001, death_risk)
+    population = Population(n, area, std_distance, std_velocity, infected, death_risk)
     manager = Manager(population, inf_prob)
     stats = Stats(population, manager.colors)
     #Huvudloop där allt uppdateras
