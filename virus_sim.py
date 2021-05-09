@@ -36,7 +36,7 @@ class Person:
         self.tpd = False
         self.last_pos = [self.x, self.y]
         self.matrix_pos = [0,0]
-        self.death_risk = 0.00001
+        self.death_risk = 0.0001
 
     def update(self, area):
         if self.state != 3:
@@ -46,7 +46,7 @@ class Person:
             self.x += self.vel * np.cos(self.angle)
             self.y += self.vel * np.sin(self.angle)
 
-            #Se till att individerna inte får gå utanför boxen
+            #Se till att individerna inte får gå utanför området
             if not area.width > self.x > 0 or not area.height > self.y > 0:
                 self.angle += np.pi
                 if self.x < 0:
@@ -208,7 +208,7 @@ class Manager:
         self.population = population
         self.inf_prob = 0.01
         self.distance = self.population.distance
-        self.colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100)]
+        self.colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100),(127,0,255)]
 
     def update(self, population, graphics):
         #Skriv ut text
@@ -249,12 +249,14 @@ class Manager:
         self.population.distribution["Infected"] += 1
         person.state = 1
 
+
 class Stats:
-    def __init__(self, pop):
+    def __init__(self, pop, colors):
         self.population = pop
         self.data = {}
         for key in self.population.distribution.keys():
             self.data[key] = []
+        self.colors = colors
         self.done = False
 
     def update(self):
@@ -262,9 +264,12 @@ class Stats:
             self.data[key].append(self.population.distribution[key])
         if self.data["Infected"][-1] <= 0 and self.done == False:
             self.done = True
-            for key in self.data.keys():
-                plt.plot(self.data[key])
+            for i, key in enumerate(self.data.keys()):
+                clr = self.colors[i]
+                plt.plot(self.data[key], color=(clr[0]/255,clr[1]/255,clr[2]/255))
+            plt.legend(self.data.keys())
             plt.show()
+        return self.done
 
     def current_stats(self):
         s = ""
@@ -275,14 +280,14 @@ class Stats:
 
 def main():
     global graphics
-    graphics = True
-    n = 100
+    graphics = False
+    n = 5000
     std_distance = 350
     std_velocity = 14
     area = Area(100, 150, 600, 400, [200,200], 50, n)
     population = Population(n, area, std_distance, std_velocity, 0.001)
     manager = Manager(population)
-    stats = Stats(population)
+    stats = Stats(population, manager.colors)
     #Huvudloop där allt uppdateras
     if graphics:
         while True:
@@ -307,7 +312,10 @@ def main():
         frames = 0
         while True:
             manager.update(population, graphics)
-            stats.update()
+            done = stats.update()
+            if done:
+                pygame.quit()
+                break
             frames += 1
             if frames % 15 == 0:
                 print(frames)
