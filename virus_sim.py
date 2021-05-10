@@ -18,7 +18,7 @@ def distance(x1, x2, y1, y2):
 
 
 class Person:
-    def __init__(self, x, y, v, phi, om, state, tp_spot, tp_radius):
+    def __init__(self, x, y, v, phi, om, state, teleportable, tp_spot=[0,0], tp_radius=0):
         self.x = x
         self.y = y
         self.vel = v
@@ -27,6 +27,7 @@ class Person:
         self.state = state
         self.current_sick_time = 0
         self.sick_time = rnd.normal(300, 50)
+        self.teleportable = teleportable
         self.tp_chance = 0.01
         self.tp_cooldown = 15
         self.tp_time = 0
@@ -36,11 +37,12 @@ class Person:
         self.tpd = False
         self.last_pos = [self.x, self.y]
         self.matrix_pos = [0,0]
-        self.death_risk = 0.0001
+        self.death_risk = 0.00005
 
     def update(self, area):
         if self.state != 3:
-            self.teleport()
+            if self.teleportable:
+                self.teleport()
 
             #Stega framåt
             self.x += self.vel * np.cos(self.angle)
@@ -159,7 +161,6 @@ class Population:
         self.population_list = []
         self.area = area
         self.distance = standard_distance/n**(1/2)
-        print(self.distance)
         self.population_matrix = PopulationMatrix(self.area, self.distance)
         self.vel = standard_velocity/n**(1/2)
         self.rot_vel = np.pi/15
@@ -171,7 +172,10 @@ class Population:
 
 
     def add_person(self, x, y, sick):
-        p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, self.area.tp_spot, self.area.tp_radius)
+        if self.area.market_on:
+            p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, True, tp_spot=self.area.tp_spot, tp_radius=self.area.tp_radius)
+        else:
+            p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, False)
         self.population_list.append(p)
         self.population_matrix.add_person(p)
         self.size += 1
@@ -186,7 +190,7 @@ class Population:
 
 
 class Area:
-    def __init__(self, x, y, w, h, tp_spot, radius, n):
+    def __init__(self, x, y, w, h, tp_spot, radius, n, market_on):
         self.x = x
         self.y = y
         self.width = w
@@ -194,13 +198,15 @@ class Area:
         self.tp_spot = tp_spot
         self.tp_radius = radius
         self.market_text = font2.render("SUPERMARKET", True, (255,0,0))
+        self.market_on = market_on
 
     def draw(self):
         pygame.draw.rect(screen, (240,240,230), (self.x, self.y, self.width, self.height))
         pygame.draw.rect(screen, (0, 0, 0), (self.x, self.y, self.width, self.height), 2)
-        pygame.draw.circle(screen, (255,200,200), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
-        pygame.draw.circle(screen, (255,0,0), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius, 1)
-        screen.blit(self.market_text, (self.x+self.tp_spot[0]-self.market_text.get_width()/2, self.y+self.tp_spot[1]-self.market_text.get_height()/2))
+        if self.market_on:
+            pygame.draw.circle(screen, (255,200,200), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
+            pygame.draw.circle(screen, (255,0,0), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius, 1)
+            screen.blit(self.market_text, (self.x+self.tp_spot[0]-self.market_text.get_width()/2, self.y+self.tp_spot[1]-self.market_text.get_height()/2))
 
 
 class Manager:
@@ -214,11 +220,11 @@ class Manager:
         #Skriv ut text
         if graphics:
             pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
-            screen.blit(pop_text, (0,0))
+            screen.blit(pop_text, (25,25))
             states = ["Susceptible", "Infected", "Recovered", "Dead"]
             for i in range(len(states)):
                 text = font1.render((states[i]+": "+str(population.distribution[states[i]])), True, self.colors[i])
-                screen.blit(text, (0, 25*(i+1)))
+                screen.blit(text, (25, 25+25*(i+1)))
 
         #Undersöker om smittspridning kan ske
         close_persons = population.population_matrix.check_distance(population.population_list)
@@ -280,11 +286,12 @@ class Stats:
 
 def main():
     global graphics
-    graphics = False
-    n = 5000
+    graphics = True
+    n = 100
     std_distance = 350
     std_velocity = 14
-    area = Area(100, 150, 600, 400, [200,200], 50, n)
+    market_on = False
+    area = Area(25, 165, 600, 400, [200,200], 50, n, market_on)
     population = Population(n, area, std_distance, std_velocity, 0.001)
     manager = Manager(population)
     stats = Stats(population, manager.colors)
