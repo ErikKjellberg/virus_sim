@@ -35,7 +35,7 @@ class Person:
         self.tp_radius = tp_radius
         self.tpd = False
         self.last_pos = [self.x, self.y]
-        self.matrix_pos = [0,0]
+        self.mat_pos = [0,0]
         self.death_risk = 0.0001
         self.vaccination_rate = 0.00001
         self.r_val = 0
@@ -66,21 +66,18 @@ class Person:
             #Vad händer när man är infekterad?
             if self.state == 1:
                 self.current_sick_time += 1
+                #Död
                 r = rnd.random()
                 if r < self.death_risk:
-                    self.state = 3
-                    return -1
+                    return 3
+                #Tillfriskning
+                if self.current_sick_time >= self.sick_time:
+                    return 2
             #Chans till vaccin
-            if self.state == 0:
+            elif self.state == 0:
                 r = rnd.random()
                 if r<self.vaccination_rate:
-                    self.state = 4
                     return 4
-
-            #Tillfriskning
-            if self.current_sick_time >= self.sick_time and self.state != 2:
-                self.state = 2
-                return 1
         return 0
 
     def teleport(self):
@@ -138,20 +135,41 @@ class PopulationMatrix: #skapar matris för avståndsbedömning
         self.mat_pop[person.mat_pos[0]][person.mat_pos[1]].append(person)
 
     def update_person(self, person): #uppdaterar personens matrix pos efter att positionen har ändrats
-        self.mat_pop[person.mat_pos[0]][person.mat_pos[1]].remove(person)
-        person.mat_pos = [person.x//self.safe_distance, person.y//self.safe_distance]
-        self.add_person(person)
+        #print("Removing. Person was in state ",person.state)
+        matrix_pos = person.mat_pos
+        if matrix_pos[0] > self.width-1:
+            matrix_pos[0] = self.width-1
+        if matrix_pos[1] > self.height-1:
+            matrix_pos[1] = self.height-1
+        #if person in self.mat_pop[matrix_pos[0]][matrix_pos[1]]:
+        self.mat_pop[matrix_pos[0]][matrix_pos[1]].remove(person)
+        person.mat_pos = [math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)]
+        if person.state == 1:
+            self.add_person(person)
+            return False
+        else:
+            #print("Didn't add back. Person was in state ",person.state)
+            return True
+
 
     def check_distance(self,pop): #returnernar ett set med par med folk som är för nära varandra
         too_close = set()
+        comps = 0
         for person in pop:
-            matrix_pos = person.mat_pos
+            matrix_pos = [math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)]
+            if matrix_pos[0] > self.width-1:
+                matrix_pos[0] = self.width-1
+            if matrix_pos[1] > self.height-1:
+                matrix_pos[1] = self.height-1
             for i in range(matrix_pos[0] - 1, min(self.width, matrix_pos[0] + 2)):
                 for j in range(matrix_pos[1] - 1, min(self.height, matrix_pos[1] + 2)):
                     if len(self.mat_pop[i][j]) != 0:
                         for person_2 in self.mat_pop[i][j]:
                             if distance(person.x, person_2.x, person.y, person_2.y) < self.safe_distance:
+                                comps += 1
                                 too_close.add((person, person_2))
+        #Kommentera bort raden under för att printa ut antal jämförelser varje frame
+        #print("Comparisons: ",comps)
         return too_close
 
 
@@ -165,10 +183,12 @@ class Population:
         self.distribution["Dead"] = 0
         self.distribution["Vaccinated"] = 0
         self.population_list = []
+        self.susceptible_population = []
+        self.infected_population = []
+        self.removed_population = []
         self.area = area
         self.distance = standard_distance/n**(1/2)
         self.r_values = []
-        print(self.distance)
         self.population_matrix = PopulationMatrix(self.area, self.distance)
         self.vel = standard_velocity/n**(1/2)
         self.rot_vel = np.pi/15
@@ -182,16 +202,31 @@ class Population:
     def add_person(self, x, y, sick):
         p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, self.area.tp_spot, self.area.tp_radius)
         self.population_list.append(p)
-        self.population_matrix.add_person(p)
+        if sick:
+            self.population_matrix.add_person(p)
         self.size += 1
         if sick:
+            self.infected_population.append(p)
             self.distribution["Infected"] += 1
         else:
+            self.susceptible_population.append(p)
             self.distribution["Susceptible"] += 1
+
+    def move_to_infected(self, person):
+        if person in self.susceptible_population:
+            self.susceptible_population.remove(person)
+        self.infected_population.append(person)
+
+    def move_to_removed(self, person):
+        if person in self.infected_population:
+            self.infected_population.remove(person)
+        if person in self.susceptible_population:
+            self.susceptible_population.remove(person)
+        self.removed_population.append(person)
 
 
     def size(self):
-        return len(self.population_list)
+        return len(self.susceptible_population)+len(self.infected_population)+len(self.removed_population)
 
 
 class Area:
@@ -228,11 +263,15 @@ class Manager:
             pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
             screen.blit(pop_text, (0,0))
             states = ["Susceptible", "Infected", "Recovered", "Dead","Vaccinated"]
+            sum = 0
             for i in range(len(states)):
+                sum += population.distribution[states[i]]
                 text = font1.render((states[i]+": "+str(population.distribution[states[i]])), True, self.colors[i])
                 screen.blit(text, (0, 25*(i+1)))
             immunity_text = font1.render(("Immunity "+str(int(100*round((population.distribution["Recovered"]+population.distribution["Vaccinated"])/(population.size-population.distribution["Dead"]),2)))+"%"), True, (26,109,192))
             screen.blit(immunity_text, (0,25*6))
+            text = font1.render(("Sum:"+str(sum)), True, self.colors[i])
+            screen.blit(text, (0, 400))
             sum = 0
             to_remove = []
             for i in population.r_values:
@@ -250,42 +289,55 @@ class Manager:
             screen.blit(r0_text, (0,25*7))
 
         #Undersöker om smittspridning kan ske
-        close_persons = population.population_matrix.check_distance(population.population_list)
+        close_persons = population.population_matrix.check_distance(population.susceptible_population)
+        recently_infected = []
         for pair in close_persons:
-            if (pair[0].state == 1 and pair[1].state == 0):
+            if not pair[0] in recently_infected:
                 if rnd.random()<self.inf_prob:
-                    self.infect(pair[1])
-                    pair[0].r_val+=1
-
-            elif (pair[0].state == 0 and pair[1].state == 1):
-                if rnd.random()<self.inf_prob:
+                    recently_infected.append(pair[0])
                     self.infect(pair[0])
+                    self.population.population_matrix.add_person(pair[0])
+                    self.population.move_to_infected(pair[0])
                     pair[1].r_val+=1
         population.r_values = []
         for person in population.population_list:
             #Kör update för varje person
             state = person.update(population.area)
-            self.population.population_matrix.update_person(person)
-            if state == 1:
-                population.distribution["Infected"] -= 1
-                population.distribution["Recovered"] += 1
+            if state == 2:
+                self.recover(person)
                 #Lägger till varje nyligen recovered persons r_val i listan
                 population.r_values.append([person.r_val,0])
-            elif state == -1:
-                population.distribution["Infected"] -= 1
-                population.distribution["Dead"] += 1
+            elif state == 3:
+                self.kill(person)
             elif state == 4:
                 self.vaccinate(person)
             if graphics:
                 person.draw(population.area, self.colors, population.population_matrix.safe_distance)
 
+        self.population.infected_population[:] = [p for p in self.population.infected_population \
+        if not self.population.population_matrix.update_person(p)]
+
     def infect(self, person):
         self.population.distribution["Susceptible"] -= 1
         self.population.distribution["Infected"] += 1
         person.state = 1
+
+    def recover(self, person):
+        self.population.distribution["Infected"] -= 1
+        self.population.distribution["Recovered"] += 1
+        self.population.move_to_removed(person)
+        person.state = 2
+
+    def kill(self, person):
+        self.population.distribution["Infected"] -= 1
+        self.population.distribution["Dead"] += 1
+        self.population.move_to_removed(person)
+        person.state = 3
+
     def vaccinate(self, person):
         self.population.distribution["Susceptible"] -= 1
         self.population.distribution["Vaccinated"] += 1
+        self.population.move_to_removed(person)
         person.state = 4
 
 
@@ -319,8 +371,8 @@ class Stats:
 
 def main():
     global graphics
-    graphics = True
-    n = 540
+    graphics = False
+    n = 1000
     std_distance = 350
     std_velocity = 14
     area = Area(100, 215, 600, 400, [200,200], 50, n)
