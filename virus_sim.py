@@ -296,8 +296,6 @@ class Manager:
                 if rnd.random()<self.inf_prob:
                     recently_infected.append(pair[0])
                     self.infect(pair[0])
-                    self.population.population_matrix.add_person(pair[0])
-                    self.population.move_to_infected(pair[0])
                     pair[1].r_val+=1
         population.r_values = []
         for person in population.population_list:
@@ -320,6 +318,8 @@ class Manager:
     def infect(self, person):
         self.population.distribution["Susceptible"] -= 1
         self.population.distribution["Infected"] += 1
+        self.population.population_matrix.add_person(person)
+        self.population.move_to_infected(person)
         person.state = 1
 
     def recover(self, person):
