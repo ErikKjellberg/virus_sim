@@ -36,13 +36,13 @@ class Person:
         self.tpd = False
         self.last_pos = [self.x, self.y]
         self.mat_pos = [0,0]
-        self.death_risk = 0.0001
-        self.vaccination_rate = 0.00001
+        self.death_risk = 0.00005
+        self.vaccination_rate = 0.00000
         self.r_val = 0
 
     def update(self, area):
         if self.state != 3:
-            self.teleport()
+            #self.teleport()
 
             #Stega framåt
             self.x += self.vel * np.cos(self.angle)
@@ -248,9 +248,13 @@ class Area:
 
 
 class Manager:
-    def __init__(self, population):
+    def __init__(self, population, vaccination_rate=0):
+        if vaccination_rate != 0:
+            self.vaccination_rate = vaccination_rate
+        else:
+            self.vaccination_rate = 0
         self.population = population
-        self.inf_prob = 0.01
+        self.inf_prob = 0.005
         self.distance = self.population.distance
         self.colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100),(127,0,255)]
         self.frame = 0
@@ -259,10 +263,12 @@ class Manager:
     def update(self, population, graphics):
         self.frame += 1
         #Skriv ut text
+        if self.vaccination_rate != 0:
+            self.constant_vaccination()
         if graphics:
             pop_text = font1.render(("Population: "+str(population.size)), True, (0,0,0))
             screen.blit(pop_text, (0,0))
-            states = ["Susceptible", "Infected", "Recovered", "Dead","Vaccinated"]
+            states = ["Susceptible", "Infected", "Recovered", "Dead", "Vaccinated"]
             sum = 0
             for i in range(len(states)):
                 sum += population.distribution[states[i]]
@@ -314,6 +320,9 @@ class Manager:
 
         self.population.infected_population[:] = [p for p in self.population.infected_population \
         if not self.population.population_matrix.update_person(p)]
+        if len(self.population.infected_population)<25 and self.frame % 15 == 0:
+            for p in self.population.infected_population:
+                print("Current sick time: ",p.current_sick_time,", recover time: ",p.sick_time)
 
     def infect(self, person):
         self.population.distribution["Susceptible"] -= 1
@@ -339,6 +348,23 @@ class Manager:
         self.population.distribution["Vaccinated"] += 1
         self.population.move_to_removed(person)
         person.state = 4
+
+    def constant_vaccination(self):
+        vaccinated_this_frame = 0
+        if self.vaccination_rate >= 1:
+            # vaccinate self.vaccination_rate persons
+            vaccinated_this_frame = self.vaccination_rate
+        else:
+            frames = int(1/self.vaccination_rate)
+            if self.frame % frames == 0:
+                vaccinated_this_frame = 1
+            else:
+                vaccinated_this_frame = 0
+        susceptible = len(self.population.susceptible_population)
+        if susceptible > 0:
+            for i in range(vaccinated_this_frame):
+                p = rnd.choice(self.population.susceptible_population)
+                self.vaccinate(p)
 
 
 class Stats:
@@ -372,12 +398,12 @@ class Stats:
 def main():
     global graphics
     graphics = False
-    n = 1000
+    n = 2000
     std_distance = 350
     std_velocity = 14
     area = Area(100, 215, 600, 400, [200,200], 50, n)
-    population = Population(n, area, std_distance, std_velocity, 0.001)
-    manager = Manager(population)
+    population = Population(n, area, std_distance, std_velocity, 0.005)
+    manager = Manager(population, vaccination_rate=0.5)
     stats = Stats(population, manager.colors)
     #Huvudloop där allt uppdateras
     if graphics:
