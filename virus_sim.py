@@ -142,9 +142,10 @@ class PopulationMatrix: #skapar matris för avståndsbedömning
         if matrix_pos[1] > self.height-1:
             matrix_pos[1] = self.height-1
         #if person in self.mat_pop[matrix_pos[0]][matrix_pos[1]]:
-        self.mat_pop[matrix_pos[0]][matrix_pos[1]].remove(person)
+
         person.mat_pos = [math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)]
         if person.state == 1:
+            self.mat_pop[matrix_pos[0]][matrix_pos[1]].remove(person)
             self.add_person(person)
             return False
         else:
@@ -182,10 +183,10 @@ class Population:
         self.distribution["Recovered"] = 0
         self.distribution["Dead"] = 0
         self.distribution["Vaccinated"] = 0
-        self.population_list = []
-        self.susceptible_population = []
-        self.infected_population = []
-        self.removed_population = []
+        self.population_list = set()
+        self.susceptible_population = set()
+        self.infected_population = set()
+        self.removed_population = set()
         self.area = area
         self.distance = standard_distance/n**(1/2)
         self.r_values = []
@@ -201,28 +202,28 @@ class Population:
 
     def add_person(self, x, y, sick):
         p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, sick, self.area.tp_spot, self.area.tp_radius)
-        self.population_list.append(p)
+        self.population_list.add(p)
         if sick:
             self.population_matrix.add_person(p)
         self.size += 1
         if sick:
-            self.infected_population.append(p)
+            self.infected_population.add(p)
             self.distribution["Infected"] += 1
         else:
-            self.susceptible_population.append(p)
+            self.susceptible_population.add(p)
             self.distribution["Susceptible"] += 1
 
     def move_to_infected(self, person):
         if person in self.susceptible_population:
             self.susceptible_population.remove(person)
-        self.infected_population.append(person)
+        self.infected_population.add(person)
 
     def move_to_removed(self, person):
         if person in self.infected_population:
             self.infected_population.remove(person)
         if person in self.susceptible_population:
             self.susceptible_population.remove(person)
-        self.removed_population.append(person)
+        self.removed_population.add(person)
 
 
     def size(self):
@@ -296,16 +297,17 @@ class Manager:
 
         #Undersöker om smittspridning kan ske
         close_persons = population.population_matrix.check_distance(population.susceptible_population)
-        recently_infected = []
+        recently_infected = set()
         for pair in close_persons:
             if not pair[0] in recently_infected:
                 if rnd.random()<self.inf_prob:
-                    recently_infected.append(pair[0])
+                    recently_infected.add(pair[0])
                     self.infect(pair[0])
                     pair[1].r_val+=1
         population.r_values = []
         for person in population.population_list:
             #Kör update för varje person
+            self.population.population_matrix.update_person(person)
             state = person.update(population.area)
             if state == 2:
                 self.recover(person)
@@ -318,8 +320,6 @@ class Manager:
             if graphics:
                 person.draw(population.area, self.colors, population.population_matrix.safe_distance)
 
-        self.population.infected_population[:] = [p for p in self.population.infected_population \
-        if not self.population.population_matrix.update_person(p)]
         if len(self.population.infected_population)<25 and self.frame % 15 == 0:
             for p in self.population.infected_population:
                 print("Current sick time: ",p.current_sick_time,", recover time: ",p.sick_time)
@@ -363,7 +363,8 @@ class Manager:
         susceptible = len(self.population.susceptible_population)
         if susceptible > 0:
             for i in range(vaccinated_this_frame):
-                p = rnd.choice(self.population.susceptible_population)
+                list_temp = list(self.population.susceptible_population)
+                p = rnd.choice(list_temp)
                 self.vaccinate(p)
 
 
