@@ -318,8 +318,10 @@ class Manager:
             if graphics:
                 person.draw(population.area, self.colors, population.population_matrix.safe_distance)
 
-        self.population.infected_population[:] = [p for p in self.population.infected_population \
-        if not self.population.population_matrix.update_person(p)]
+        #self.population.infected_population[:] = [p for p in self.population.infected_population \
+        #if not self.population.population_matrix.update_person(p)]
+        for p in self.population.infected_population:
+            self.population.population_matrix.update_person(p)
         if len(self.population.infected_population)<25 and self.frame % 15 == 0:
             for p in self.population.infected_population:
                 print("Current sick time: ",p.current_sick_time,", recover time: ",p.sick_time)
