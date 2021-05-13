@@ -23,7 +23,7 @@ def distance(x1, x2, y1, y2):
 
 
 class Person:
-    def __init__(self, x, y, v, phi, om, state, tp_spot, tp_radius):
+    def __init__(self, x, y, v, phi, om, state, teleportable, tp_spot, tp_radius):
         self.x = x
         self.y = y
         self.vel = v
@@ -32,6 +32,7 @@ class Person:
         self.state = state
         self.current_sick_time = 0
         self.recover_time = rnd.normal(300, 50)
+        self.teleportable = teleportable
         self.tp_chance = 0.01
         self.tp_cooldown = 15
         self.tp_time = 0
@@ -47,7 +48,8 @@ class Person:
 
     def update(self, area):
         if self.state != DEAD:
-            #self.teleport()
+            if self.teleportable:
+                self.teleport()
 
             #Stega framåt
             self.x += self.vel * np.cos(self.angle)
@@ -181,7 +183,7 @@ class Population:
         self.infected_population = set()
         self.removed_population = set()
         self.area = area
-
+        self.teleportable = (self.area.tp_spot != None)
         # Avståndet för möjlighet till smittspridning är inversproportinellt mot roten ur populationsstorleken,
         self.distance = standard_distance/n**(1/2)
         self.r_values = []
@@ -196,7 +198,7 @@ class Population:
 
 
     def add_person(self, x, y, infected):
-        p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, infected, self.area.tp_spot, self.area.tp_radius)
+        p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, infected, self.teleportable, self.area.tp_spot, self.area.tp_radius)
         self.population_list.add(p)
         if infected:
             self.population_matrix.add_person(p)
@@ -226,21 +228,22 @@ class Population:
 
 
 class Area:
-    def __init__(self, x, y, w, h, tp_spot, radius, n):
+    def __init__(self, x, y, w, h, n, tp_spot=None, tp_radius=None):
         self.x = x
         self.y = y
         self.width = w
         self.height = h
         self.tp_spot = tp_spot
-        self.tp_radius = radius
+        self.tp_radius = tp_radius
         self.market_text = font2.render("SUPERMARKET", True, (255,0,0))
 
     def draw(self):
         pygame.draw.rect(screen, (240,240,230), (self.x, self.y, self.width, self.height))
         pygame.draw.rect(screen, (0, 0, 0), (self.x, self.y, self.width, self.height), 2)
-        pygame.draw.circle(screen, (255,200,200), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
-        pygame.draw.circle(screen, (255,0,0), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius, 1)
-        screen.blit(self.market_text, (self.x+self.tp_spot[0]-self.market_text.get_width()/2, self.y+self.tp_spot[1]-self.market_text.get_height()/2))
+        if self.tp_spot != None:
+            pygame.draw.circle(screen, (255,200,200), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius)
+            pygame.draw.circle(screen, (255,0,0), (self.x+self.tp_spot[0], self.y+self.tp_spot[1]), self.tp_radius, 1)
+            screen.blit(self.market_text, (self.x+self.tp_spot[0]-self.market_text.get_width()/2, self.y+self.tp_spot[1]-self.market_text.get_height()/2))
 
 
 class Manager:
@@ -396,13 +399,19 @@ class Stats:
 
 def main():
     global graphics
-    graphics = False
+    graphics = True
     n = 500
     # Konstanter för standardavståndet för smittspridning och standardhastigheten för individerna
     std_distance = 350
     std_velocity = 14
+    teleporting_allowed = True
     # Skapar området, populationen, en manager som tar hand om smittans utveckling, samt ett statistiskinsamlarobjekt
-    area = Area(100, 215, 600, 400, [200,200], 50, n)
+    if teleporting_allowed:
+        teleport_spot = [200,200]
+        teleport_radius = 50
+        area = Area(100, 215, 600, 400, n, tp_spot=teleport_spot, tp_radius=teleport_radius)
+    else:
+        area = Area(100, 215, 600, 400, n)
     population = Population(n, area, std_distance, std_velocity, 0.005)
     manager = Manager(population, vaccination_rate=0)
     stats = Stats(population, manager.colors)
