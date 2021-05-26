@@ -1,8 +1,9 @@
 import math
-import numpy as np
+import random
 import numpy.random as rnd
 import time
 import pickle
+import fastrand
 
 
 width, height = 1000, 700
@@ -14,7 +15,7 @@ DEAD = 3
 VACCINATED = 4
 
 def distance(x1, x2, y1, y2):
-    return np.sqrt((y2-y1)**2+(x2-x1)**2)
+    return math.sqrt((y2-y1)**2+(x2-x1)**2)
 
 
 class Person:
@@ -49,12 +50,12 @@ class Person:
                 self.teleport()
 
             #Stega framåt
-            self.x += self.vel * np.cos(self.angle)
-            self.y += self.vel * np.sin(self.angle)
+            self.x += self.vel * math.cos(self.angle)
+            self.y += self.vel * math.sin(self.angle)
 
             #Se till att individerna inte får gå utanför området
             if not area.width > self.x > 0 or not area.height > self.y > 0:
-                self.angle += np.pi
+                self.angle += math.pi
                 if self.x < 0:
                     self.x = 0
                 if self.x > area.width:
@@ -65,32 +66,32 @@ class Person:
                     self.y = area.height
 
             #Rotera slumpmässigt
-            self.angle += rnd.choice([-1, 1])*rnd.random()*self.rot_vel
+            self.angle += random.choice([-1, 1])*random.random()*self.rot_vel
 
             #Vad händer när man är infekterad?
             if self.state == INFECTED:
                 self.current_sick_time += 1
                 #Död
-                if rnd.random() < self.death_risk:
+                if random.random() < self.death_risk:
                     return DEAD
                 #Tillfriskning
                 if self.current_sick_time >= self.recover_time:
                     return RECOVERED
             #Chans till vaccin
             elif self.state == SUSCEPTIBLE:
-                if rnd.random() < self.vaccination_rate:
+                if random.random() < self.vaccination_rate:
                     return VACCINATED
         # Om inget intressant hände
         return 0
 
     def teleport(self):
         if not self.teleported:
-            if rnd.random() < self.tp_chance and self.tp_time >= self.tp_cooldown:
+            if random.random() < self.tp_chance and self.tp_time >= self.tp_cooldown:
                 self.last_pos = [self.x, self.y]
-                r = rnd.rand()*self.tp_radius
-                theta = rnd.random()*2*np.pi
-                tp_x = self.tp_spot[0] + r * np.cos(theta)
-                tp_y = self.tp_spot[1] + r * np.sin(theta)
+                r = random.rand()*self.tp_radius
+                theta = random.random()*2*math.pi
+                tp_x = self.tp_spot[0] + r * math.cos(theta)
+                tp_y = self.tp_spot[1] + r * math.sin(theta)
                 self.x = tp_x
                 self.y = tp_y
                 self.tp_time = 0
@@ -183,16 +184,16 @@ class Population:
         self.r_values = []
         self.population_matrix = PopulationMatrix(self.area, self.distance)
         self.vel = standard_velocity/pow(n,1/2)
-        self.rot_vel = np.pi/15
+        self.rot_vel = math.pi/15
         inf = infected
         for i in range(inf,n):
-            self.add_person(rnd.randint(0, self.area.width), rnd.randint(0, self.area.height), 0)
+            self.add_person(fastrand.pcg32bounded(self.area.width), fastrand.pcg32bounded(self.area.height), 0)
         for i in range(inf):
-            self.add_person(rnd.randint(0, self.area.width), rnd.randint(0, self.area.height), 1)
+            self.add_person(fastrand.pcg32bounded(self.area.width), fastrand.pcg32bounded(self.area.height), 1)
 
 
     def add_person(self, x, y, infected):
-        p = Person(x, y, self.vel, 2 * np.pi * rnd.random(), self.rot_vel, infected, self.teleportable, self.area.tp_spot, self.area.tp_radius)
+        p = Person(x, y, self.vel, 2 * math.pi * random.random(), self.rot_vel, infected, self.teleportable, self.area.tp_spot, self.area.tp_radius)
         self.population_list.add(p)
         self.size += 1
         if infected:
@@ -250,7 +251,7 @@ class Manager:
 
         for pair in close_persons:
             if not pair[0] in recently_infected:
-                if rnd.random()<self.inf_prob:
+                if random.random()<self.inf_prob:
                     recently_infected.add(pair[0])
                     self.infect(pair[0])
 
@@ -313,7 +314,7 @@ class Manager:
         if susceptible > 0:
             for i in range(vaccinated_this_frame):
                 list_temp = list(self.population.susceptible_population)
-                p = rnd.choice(list_temp)
+                p = random.choice(list_temp)
                 self.vaccinate(p)
 
 
@@ -343,7 +344,7 @@ class Stats:
 
 
 def main():
-    n = 200
+    n = 2000
     # Konstanter för standardavståndet för smittspridning och standardhastigheten för individerna
     global death_risk
     global vaccination_raten
@@ -353,7 +354,7 @@ def main():
     vaccination_rate = 0
     colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100),(127,0,255)]
     amount_infected = 10
-    inf_prob= 0.005
+    inf_prob= 0.0025
     death_risk = 0.00005
     vaccination_raten = 0
     # Skapar området, populationen, en manager som tar hand om smittans utveckling, samt ett statistiskinsamlarobjekt
@@ -371,7 +372,7 @@ def main():
     while True:
         manager.update(population)
         done = stats.update()
-        if frames%100 == 0:
+        if frames%1000 == 0:
             print(stats.current_stats())
         if done:
             break
