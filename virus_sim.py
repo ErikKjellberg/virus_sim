@@ -322,7 +322,8 @@ class Manager:
 
         if len(self.population.infected_population)<25 and self.frame % 15 == 0:
             for p in self.population.infected_population:
-                print("Current sick time: ",p.current_sick_time,", recover time: ",p.sick_time)
+                pass
+                #print("Current sick time: ",p.current_sick_time,", recover time: ",p.sick_time)
 
     def infect(self, person):
         self.population.distribution["Susceptible"] -= 1
@@ -399,7 +400,7 @@ class Stats:
 def main():
     global graphics
     graphics = False
-    n = 2000
+    n = 20000
     std_distance = 350
     std_velocity = 14
     area = Area(100, 215, 600, 400, [200,200], 50, n)
@@ -436,7 +437,8 @@ def main():
                 break
             frames += 1
             if frames % 15 == 0:
-                print(frames)
-                print(stats.current_stats())
+                pass
+                #print(frames)
+                #print(stats.current_stats())
 
 main()
