@@ -149,12 +149,12 @@ class Population:
         self.distribution["Vaccinated"] = 0
         self.population_list = []
         self.area = area
-        self.distance = standard_distance/n**(1/2)
+        self.distance = 7.8
         self.death_risk = death_risk
         self.vaccination_rate = vaccination_rate
-        print(self.distance)
+        #print(self.distance)
         self.population_matrix = PopulationMatrix(self.area, self.distance)
-        self.vel = standard_velocity/n**(1/2)
+        self.vel = 0.31
         self.rot_vel = np.pi/15
         inf = math.ceil(max(1, n*infected_ratio))
         for i in range(n-inf):
@@ -248,6 +248,8 @@ class Stats:
             for i, key in enumerate(self.data.keys()):
                 clr = self.colors[i]
                 plt.plot(self.data[key], color=(clr[0]/255,clr[1]/255,clr[2]/255))
+            plt.xlabel('T (Frames/Tidssteg)', fontsize = 11)
+            plt.ylabel('P (Antal människor)', fontsize = 11)
             plt.legend(self.data.keys())
             plt.show()
         return self.done
@@ -260,14 +262,14 @@ class Stats:
 
 
 def main():
-    n = int(input("Population size: "))
-    infected = float(input("Part of population infected in the beginning (for example 0.01): "))
-    inf_prob = float(input("Infection probability (every frame, 0.01 is pretty lagom): "))
-    death_risk = float(input("Death probability (every frame, 0.00005 is pretty lagom): "))
-    vaccination_rate = float(input("Vaccination rate (every frame, 0.001 is pretty lagom: "))
-    std_distance = 350
-    std_velocity = 14
-    area = Area(100, 150, 600, 400, [200,200], 50, n)
+    n = 200
+    infected = 0.005
+    inf_prob = 0.05
+    death_risk = 0.00005
+    vaccination_rate = 0
+    std_distance = 7.8
+    std_velocity = 0.31
+    area = Area(100, 150, 800, 300, [200,200], 50, n)
     population = Population(n, area, std_distance, std_velocity, infected, death_risk, vaccination_rate)
     manager = Manager(population, inf_prob)
     stats = Stats(population, manager.colors)
@@ -277,11 +279,10 @@ def main():
         manager.update(population)
         done = stats.update()
         if done:
-            pygame.quit()
             break
         frames += 1
         if frames % 15 == 0:
-            print("Time (frames): " + str(frames))
+            #print("Time (frames): " + str(frames))
             print(stats.current_stats())
 
 main()
