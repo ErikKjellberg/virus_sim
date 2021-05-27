@@ -1,9 +1,6 @@
 import math
 import random
-import numpy.random as rnd
-import time
 import pickle
-import fastrand
 
 
 width, height = 1000, 700
@@ -29,7 +26,7 @@ class Person:
         self.rot_vel = om
         self.state = state
         self.current_sick_time = 0
-        self.recover_time = rnd.normal(300, 50)
+        self.recover_time = random.normalvariate(300, 50)
         self.teleportable = teleportable
         self.tp_chance = 0.01
         self.tp_cooldown = 15
@@ -66,7 +63,10 @@ class Person:
                     self.y = area.height
 
             #Rotera slumpmässigt
-            self.angle += random.choice([-1, 1])*random.random()*self.rot_vel
+            if random.random() >= 0.5:
+                self.angle += random.random()*self.rot_vel
+            else:
+                self.angle -= random.random()*self.rot_vel
 
             #Vad händer när man är infekterad?
             if self.state == INFECTED:
@@ -88,7 +88,7 @@ class Person:
         if not self.teleported:
             if random.random() < self.tp_chance and self.tp_time >= self.tp_cooldown:
                 self.last_pos = [self.x, self.y]
-                r = random.rand()*self.tp_radius
+                r = random.random()*self.tp_radius
                 theta = random.random()*2*math.pi
                 tp_x = self.tp_spot[0] + r * math.cos(theta)
                 tp_y = self.tp_spot[1] + r * math.sin(theta)
@@ -112,8 +112,8 @@ class PopulationMatrix:  # Skapar matris för avståndsbedömning
     def __init__(self, area, safe_distance):
         self.mat_pop = []
         self.safe_distance = safe_distance
-        self.width = math.ceil(area.width//safe_distance)
-        self.height = math.ceil(area.height//safe_distance)
+        self.width = int(area.width//safe_distance)
+        self.height = int(area.height//safe_distance)
         for i in range(self.width):
             self.mat_pop.append([])
             for j in range(self.height):
@@ -124,12 +124,12 @@ class PopulationMatrix:  # Skapar matris för avståndsbedömning
             self.add_person(person)
 
     def add_person(self,person):  # Lägger till en person i matrisen
-        person.mat_pos = self.fix_mat_pos([math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)])
+        person.mat_pos = self.fix_mat_pos([int(person.x//self.safe_distance), int(person.y//self.safe_distance)])
         self.mat_pop[person.mat_pos[0]][person.mat_pos[1]].add(person)
 
     def update_person(self, person):  # Uppdaterar personens matrix pos efter att positionen har ändrats
         matrix_pos = self.fix_mat_pos(person.mat_pos)
-        person.mat_pos = [math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)]
+        person.mat_pos = [int(person.x//self.safe_distance), int(person.y//self.safe_distance)]
         self.mat_pop[matrix_pos[0]][matrix_pos[1]].remove(person)
         if person.state == INFECTED:
             self.add_person(person)
@@ -146,17 +146,15 @@ class PopulationMatrix:  # Skapar matris för avståndsbedömning
         return mat_pos
 
     def check_distance(self,pop):  # Returnernar ett set med par med individer som är för nära varandra
-        t0 = time.time()
         too_close = set()
         for person in pop:
-            matrix_pos = self.fix_mat_pos([math.floor(person.x//self.safe_distance), math.floor(person.y//self.safe_distance)])
+            matrix_pos = self.fix_mat_pos([int(person.x//self.safe_distance), int(person.y//self.safe_distance)])
             # Tittar efter infekterade individer i de (vanligtvis) 8 omkringliggande rutorna
             for i in range(matrix_pos[0] - 1, min(self.width, matrix_pos[0] + 2)):
                 for j in range(matrix_pos[1] - 1, min(self.height, matrix_pos[1] + 2)):
                     for person_2 in self.mat_pop[i][j]:
                         if distance(person.x, person_2.x, person.y, person_2.y) < self.safe_distance:
                             too_close.add((person, person_2))
-        #print(time.time()-t0)
         return too_close
 
 
@@ -187,9 +185,9 @@ class Population:
         self.rot_vel = math.pi/15
         inf = infected
         for i in range(inf,n):
-            self.add_person(fastrand.pcg32bounded(self.area.width), fastrand.pcg32bounded(self.area.height), 0)
+            self.add_person(random.random()*self.area.width, random.random()*self.area.height, 0)
         for i in range(inf):
-            self.add_person(fastrand.pcg32bounded(self.area.width), fastrand.pcg32bounded(self.area.height), 1)
+            self.add_person(random.random()*self.area.width, random.random()*self.area.height, 1)
 
 
     def add_person(self, x, y, infected):
@@ -330,7 +328,7 @@ class Stats:
     def update(self):
         for key in self.population.distribution.keys():
             self.data[key].append(self.population.distribution[key])
-        if self.data["Infected"][-1] <= 0 and self.done == False:
+        if self.data["Infected"][-1] <= 50 and self.done == False:
             self.done = True
             with open('Data_save.pkl', 'wb') as f:
                 pickle.dump(self.data,f)
@@ -344,20 +342,20 @@ class Stats:
 
 
 def main():
-    n = 2000
+    n = 20000
     # Konstanter för standardavståndet för smittspridning och standardhastigheten för individerna
     global death_risk
     global vaccination_raten
     std_distance = 350
     std_velocity = 14
-    teleporting_allowed = False
+    teleporting_allowed = True
     vaccination_rate = 0
     colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100),(127,0,255)]
-    amount_infected = 10
-    inf_prob= 0.0025
+    amount_infected = 100
+    inf_prob= 0.005
     death_risk = 0.00005
     vaccination_raten = 0
-    # Skapar området, populationen, en manager som tar hand om smittans utveckling, samt ett statistiskinsamlarobjekt
+       # Skapar området, populationen, en manager som tar hand om smittans utveckling, samt ett statistiskinsamlarobjekt
     if teleporting_allowed:
         teleport_spot = [200,200]
         teleport_radius = 50
@@ -372,10 +370,7 @@ def main():
     while True:
         manager.update(population)
         done = stats.update()
-        if frames%1000 == 0:
-            print(stats.current_stats())
         if done:
             break
         frames += 1
-
 main()
