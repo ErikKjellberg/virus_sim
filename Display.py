@@ -6,7 +6,7 @@ with open('Data_save.pkl','rb') as f:
 for i, key in enumerate(data.keys()):
     clr = colors[i]
     plt.plot(data[key], color=(clr[0]/255,clr[1]/255,clr[2]/255))
-plt.xlabel('T (Frames/Tidssteg)', fontsize = 11)
-plt.ylabel('P (Antal människor)', fontsize = 11)
+plt.xlabel('Tid (Frames/Tidsenheter)', fontsize = 11)
+plt.ylabel('Population (Antal)', fontsize = 11)
 plt.legend(data.keys())
 plt.show()
