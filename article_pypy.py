@@ -17,8 +17,6 @@ def distance(x1, x2, y1, y2):
 
 class Person:
     def __init__(self, x, y, v, phi, om, state, teleportable, tp_spot, tp_radius):
-        global death_risk
-        global vaccination_raten
         self.x = x
         self.y = y
         self.vel = v
@@ -38,7 +36,7 @@ class Person:
         self.last_pos = [self.x, self.y]
         self.mat_pos = [0,0]
         self.death_risk = death_risk
-        self.vaccination_rate = vaccination_raten
+        self.vaccination_rate = individual_vaccination_chance
         self.r_val = 0
 
     def update(self, area):
@@ -189,7 +187,6 @@ class Population:
         for i in range(inf):
             self.add_person(random.random()*self.area.width, random.random()*self.area.height, 1)
 
-
     def add_person(self, x, y, infected):
         p = Person(x, y, self.vel, 2 * math.pi * random.random(), self.rot_vel, infected, self.teleportable, self.area.tp_spot, self.area.tp_radius)
         self.population_list.add(p)
@@ -213,7 +210,6 @@ class Population:
             self.susceptible_population.remove(person)
         self.removed_population.add(person)
 
-
     def size(self):
         return len(self.susceptible_population)+len(self.infected_population)+len(self.removed_population)
 
@@ -227,6 +223,7 @@ class Area:
         self.tp_spot = tp_spot
         self.tp_radius = tp_radius
 
+
 class Manager:
     def __init__(self, population, vaccination_rate, inf_prob):
         self.vaccination_rate = vaccination_rate
@@ -236,13 +233,13 @@ class Manager:
         # Färger för de olika tillstånden
         self.frame = 0
 
-    def update(self, population):
+    def update(self):
         self.frame += 1
         #Skriv ut text
         if self.vaccination_rate != 0:
             self.constant_vaccination()
         #Undersöker om smittspridning kan ske
-        close_persons = population.population_matrix.check_distance(population.susceptible_population)
+        close_persons = self.population.population_matrix.check_distance(self.population.susceptible_population)
         recently_infected = set()
         recently_recovered = set()
         recently_dead = set()
@@ -253,9 +250,9 @@ class Manager:
                     recently_infected.add(pair[0])
                     self.infect(pair[0])
 
-        for person in population.population_list:
+        for person in self.population.population_list:
             #Kör update för varje person
-            update_state = person.update(population.area)
+            update_state = person.update(self.population.area)
             # De som precis tillfrisknat
             if update_state == RECOVERED:
                 self.recover(person)
@@ -325,10 +322,11 @@ class Stats:
         self.colors = colors
         self.done = False
 
-    def update(self):
+    def update(self, frames):
         for key in self.population.distribution.keys():
             self.data[key].append(self.population.distribution[key])
-        if self.data["Infected"][-1] <= 50 and self.done == False:
+        # Om antalet infekterade och det har gått mer än ett visst antal frames avslutas simuleringen.
+        if self.data["Infected"][-1] <= self.data["Infected"][0]*0.1 and frames > 50 and self.done == False:
             self.done = True
             with open('Data_save.pkl', 'wb') as f:
                 pickle.dump(self.data,f)
@@ -342,19 +340,19 @@ class Stats:
 
 
 def main():
-    n = 20000
+    n = 2000
     # Konstanter för standardavståndet för smittspridning och standardhastigheten för individerna
     global death_risk
-    global vaccination_raten
+    global individual_vaccination_chance
     std_distance = 350
     std_velocity = 14
-    teleporting_allowed = True
+    teleporting_allowed = False
     vaccination_rate = 0
     colors = [(0,0,0),(255,0,0),(0,0,255),(100,100,100),(127,0,255)]
-    amount_infected = 100
+    amount_infected = 10
     inf_prob= 0.005
     death_risk = 0.00005
-    vaccination_raten = 0
+    individual_vaccination_chance = 0
        # Skapar området, populationen, en manager som tar hand om smittans utveckling, samt ett statistiskinsamlarobjekt
     if teleporting_allowed:
         teleport_spot = [200,200]
@@ -368,8 +366,8 @@ def main():
     #Huvudloop där allt uppdateras
     frames = 0
     while True:
-        manager.update(population)
-        done = stats.update()
+        manager.update()
+        done = stats.update(frames)
         if done:
             break
         frames += 1
